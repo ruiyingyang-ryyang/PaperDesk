@@ -1,5 +1,7 @@
 # PaperDesk V1.0.0
 
+[源码仓库](https://github.com/ruiyingyang-ryyang/PaperDesk) · [下载 V1.0.0](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/tag/v1.0.0) · [问题反馈](https://github.com/ruiyingyang-ryyang/PaperDesk/issues)
+
 Windows 11 论文筛选、AI 问答与辅助写作工作台。应用内不显示版本号；支持原生贴靠、浅色/夜间模式和字号调整。
 
 ## 安装与更新
