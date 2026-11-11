@@ -1,0 +1,34 @@
+{
+  "appId": "PaperDesk.Research",
+  "productName": "PaperDesk",
+  "executableName": "PaperDesk",
+  "directories": {
+    "output": "release",
+    "buildResources": "assets"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "assets/icon.ico",
+    "signAndEditExecutable": false
+  },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "allowElevation": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "runAfterFinish": true,
+    "artifactName": "PaperDesk-Windows-x64-Setup.exe",
+    "include": "scripts/installer.nsh",
+    "packElevateHelper": false
+  },
+  "publish": null,
+  "npmRebuild": false
+}

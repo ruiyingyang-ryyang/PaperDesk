@@ -1,0 +1,27 @@
+.view-writing{overflow:hidden}
+.writing-page{padding-bottom:0;flex:1}
+.writing-options{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,.23fr) minmax(150px,.3fr);gap:22px;align-items:start}
+.writing-options .field{margin:0;min-width:0}
+.writing-options input,.writing-options select{width:100%}
+.writing-journal-options{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.writing-journal-chip{border:1px solid transparent;border-radius:var(--radius-control);background:var(--control);color:var(--secondary);padding:7px 12px;min-height:32px;font-size:var(--text-small);white-space:normal;text-align:left;justify-content:flex-start;box-shadow:none}
+.writing-journal-chip svg{width:14px;height:14px;flex-shrink:0}
+.writing-journal-chip:hover{background:var(--row-hover);color:var(--ink)}
+.writing-journal-chip.active{background:var(--chip-active-fill);color:var(--ink);border-color:transparent;box-shadow:inset 0 0 0 .5px var(--chip-active-border)}
+.writing-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.writing-columns .panel{min-width:0;margin-bottom:12px}
+.writing-columns h2{margin-bottom:12px}
+.writing-columns textarea{width:100%;min-height:340px;resize:vertical;line-height:1.8;font-family:inherit;font-size:inherit}
+.writing-footer{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;padding:12px 0 0;gap:10px 16px;background:var(--bg)}
+.writing-target{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.writing-target label{font-size:var(--text-small);color:var(--secondary);white-space:nowrap}
+.writing-target select{width:150px}
+.writing-status{font-size:var(--text-small)}
+.writing-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-left:auto}
+.writing-actions button{white-space:nowrap}
+.writing-actions .writing-action.is-selected{background:var(--action);color:var(--action-ink);opacity:1}
+.writing-actions .writing-action[aria-busy=true]::before{content:"";width:12px;height:12px;border:1.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite}
+@media(hover:hover){.writing-actions .writing-action.is-selected:not(:disabled):hover{background:var(--primary-hover)}.writing-journal-chip.active:not(:disabled):hover{background:var(--chip-active-hover)}}
+@media(prefers-reduced-motion:reduce){.writing-actions .writing-action[aria-busy=true]::before{animation:none}}
+@media(max-width:1000px){.writing-options{grid-template-columns:1fr 1fr}.writing-journals-field{grid-column:1/-1}.writing-columns textarea{min-height:260px}}
+@media(max-width:700px){.writing-columns,.writing-options{grid-template-columns:1fr}.writing-columns textarea{min-height:220px}}

@@ -1,0 +1,15 @@
+.weekly-range .month-field{gap:5px}
+.weekly-range select,.weekly-range .date-button{height:36px;min-height:36px;font-size:var(--text-small)}
+.weekly-range .date-button{background:var(--control);color:var(--ink)}
+.weekly-date-field label{color:var(--muted)}
+.date-picker-modal{width:min(380px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto}
+.date-picker-heading{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(0,1fr) 28px;gap:10px;align-items:end;margin:20px 0 16px}
+.date-picker-heading label{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:var(--text-small);color:var(--secondary)}
+.date-picker-heading input,.date-picker-heading select{width:100%;min-width:0;height:36px}
+.date-picker-heading>button{width:28px;height:36px;padding:5px}
+.date-weekdays,.date-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.date-weekdays{margin-bottom:6px;color:var(--muted);font-size:var(--text-small);text-align:center}
+.date-day{min-height:34px;padding:6px 0;background:transparent;color:var(--ink);font-variant-numeric:tabular-nums}
+.date-days .date-day.is-selected{background:var(--action);color:var(--action-ink)}
+.date-picker-content .modal-actions{margin-top:20px}
+@media(hover:hover){.weekly-range .date-button:hover,.date-day:not(.is-selected):hover{background:var(--row-hover);color:var(--ink)}.date-days .date-day.is-selected:hover{background:var(--primary-hover)}}

@@ -1,0 +1,36 @@
+/* PaperDesk role mapping to the official DeepSeek Harness light/dark tokens.
+ * Source (checked 2026-11-09):
+ * https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-theme/src/styles/design-platform.css
+ * Elevation: the same directory's gradient-shadow-text.css.
+ * Keep component colors in this theme layer; feature sheets consume these roles.
+ */
+:root{
+  --bg:#fff;--surface:#fff;--side:#f9fafb;--control:#f5f6f7;
+  --ink:#0f1115;--secondary:#61666b;--muted:#81858c;--caption:#adb2b8;
+  --line:rgba(0,0,0,.1);--panel-stroke:rgba(0,0,0,.16);
+  --blue:#4176e6;--accent:#4176e6;--accent-hover:#7aaaff;--accent-ink:#4176e6;
+  --accent-soft:#e4edfd;--accent-row:rgba(38,49,72,.06);--accent-mark:#d3e2ff;
+  /* button-primary, sidebar-nav-item-active and interactive-bg-hover */
+  --action:#0f1115;--action-ink:#fff;--primary-hover:#43454a;
+  --selected:#ebeef2;--row-active:#ebeef2;--row-hover:rgba(38,49,72,.06);
+  --chip-active-fill:#ebeef2;--chip-active-border:#979da6;--chip-active-hover:#e9ecf2;
+  --chat-user:#edf3fe;--code:#f9fafb;--pale:#f5f6f7;
+  --overlay:rgba(0,0,0,.24);--menu-fill:rgba(252,253,254,.7);
+  --toast-bg:#353638;--toast-ink:#fff;--scrollbar:#e5e5e5;--scrollbar-hover:#d4d4d4;
+  --gradient:none;--shadow:0 0 0 .5px var(--panel-stroke),0 3px 8px rgba(0,0,0,.03),0 0 16px rgba(0,0,0,.02);
+  color-scheme:light;
+}
+:root[data-theme=dark]{
+  --bg:#151517;--surface:#232324;--side:#1b1b1c;--control:#353638;
+  --ink:#f9fafb;--secondary:#cfd3d6;--muted:#adb2b8;--caption:#81858c;
+  --line:rgba(255,255,255,.12);--panel-stroke:rgba(255,255,255,.16);
+  --blue:#7aaaff;--accent:#7aaaff;--accent-hover:#4176e6;--accent-ink:#7aaaff;
+  --accent-soft:#34415b;--accent-row:rgba(255,255,255,.08);--accent-mark:#43454a;
+  --action:#f9fafb;--action-ink:#0f1115;--primary-hover:#ebeef2;
+  --selected:#43454a;--row-active:#43454a;--row-hover:rgba(255,255,255,.08);
+  --chip-active-fill:#43454a;--chip-active-border:#81858c;--chip-active-hover:#61666b;
+  --chat-user:#2c2c2e;--code:#1b1b1c;--pale:#353638;
+  --overlay:rgba(0,0,0,.24);--menu-fill:rgba(48,49,54,.64);
+  --toast-bg:#43454a;--toast-ink:#fff;--scrollbar:#3c3c3d;--scrollbar-hover:#545557;
+  color-scheme:dark;
+}

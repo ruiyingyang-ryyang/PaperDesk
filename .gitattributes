@@ -1,0 +1,7 @@
+# Preserve file bytes for SOURCE_MANIFEST.sha256 on every platform.
+* -text
+*.png binary
+*.ico binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
