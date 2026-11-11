@@ -2,3 +2,10 @@ allowBuilds:
   electron: true
   sharp: true
   electron-winstaller: false
+
+minimumReleaseAgeExclude:
+  - minimatch@11.0.7
+
+overrides:
+  "glob@>=9 <=14.0.1": "14.0.4"
+  "minimatch@>=7 <11.0.1": "11.0.7"
