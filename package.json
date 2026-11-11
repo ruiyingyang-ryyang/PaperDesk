@@ -21,7 +21,8 @@
     "test:writing-state": "node scripts/verify-writing-state.cjs",
     "test:weekly-date": "node scripts/verify-weekly-date.cjs",
     "test:chat-search": "node scripts/verify-chat-search.cjs",
-    "test:release": "node scripts/verify-release.cjs"
+    "test:release": "node scripts/verify-release.cjs",
+    "build:portable": "node scripts/build-portable.cjs"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",

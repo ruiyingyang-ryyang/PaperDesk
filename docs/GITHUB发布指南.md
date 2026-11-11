@@ -1,27 +1,44 @@
-# 将 PaperDesk V1.0.0 发布到 GitHub
+# 维护与发布指南
 
-此文件夹是仓库根目录，可以独立安装依赖、运行、测试和构建。项目已公开发布于 https://github.com/ruiyingyang-ryyang/PaperDesk 。以下步骤用于维护仓库，或发布你自己的分支版本。
+[项目仓库](https://github.com/ruiyingyang-ryyang/PaperDesk) · [发布页](https://github.com/ruiyingyang-ryyang/PaperDesk/releases) · [返回主页](../README.md)
 
-## 上传源码
+## 源码与发行文件
 
-1. 登录自己的 GitHub 账户，新建名为 PaperDesk 的空仓库，选择 Public；不要勾选自动创建 README、许可证或 .gitignore，因为本目录已经提供。
-2. 用 GitHub Desktop 选择本文件夹作为本地仓库，提交全部文件，再发布到自己的 GitHub 仓库。
-3. 也可使用 Git：先在本目录执行 `git init`、`git add .`、`git commit -m "Release PaperDesk V1.0.0"` 和 `git branch -M main`。将新建仓库页面给出的真实地址添加为 origin，然后执行 `git push -u origin main`。
-4. GitHub Actions 会执行依赖安装和自动测试。维护者可手动运行 Windows build 流程，下载安装包并检查。
+源码保存在 `main` 分支。普通用户下载 Releases 中的 EXE，GitHub 自动生成的 Source code ZIP 是开发源码。
 
-## 发布安装包
+- 安装版：`PaperDesk-Windows-x64-Setup.exe`。
+- 免安装启动版：`PaperDesk-Windows-x64-Portable.exe`，首次运行自动解压至本机缓存。
+- 校验文件：`SHA256SUMS.txt`，记录上述发行文件的 SHA-256。
 
-在 Windows 11 x64 电脑中执行：
+EXE 作为 Release 附件上传，不放入 Git 源码提交。第三方声明与许可证必须随源码和打包资源保留。
+
+## 本地验证
+
+在 Windows 11 x64 中准备 Node.js 22.12+、npm 和 Git，执行：
 
 ```powershell
 npm ci
 npm test
+npm run test:desktop
 npm run build:win
+npm run build:portable
 npm run test:release
 ```
 
-确认后在 GitHub Releases 新建 `v1.0.0` 标签和 `PaperDesk V1.0.0` 发布，附上 `release/PaperDesk-Windows-x64-Setup.exe`。便携版需压缩整个 `dist/PaperDesk-win32-x64/` 文件夹。安装器目前没有代码签名。
+构建产物在 `dist/` 与 `release/`。桌面检查使用独立测试资料库和模拟 API，不使用真实研究库或付费密钥。
 
-安装文件不放入源码提交。`node_modules`、构建缓存、临时资料库、个人研究资料和 API 密钥均不应上传。`.gitignore` 已排除常见本机文件；`THIRD_PARTY_NOTICES.md` 和随附第三方许可证须一起保留。
+## 发布步骤
 
-可在仓库设置中启用私密漏洞报告。README 中不预设仓库所有者、远程地址或维护者邮箱；发布后按实际情况填写即可。
+1. 更新项目版本和 `CHANGELOG.md`，维护 README 下载链接。
+2. 更新 `SOURCE_MANIFEST.sha256` 中的源码校验值，确认自动测试和隐私检查通过。
+3. 提交并推送源码，在对应提交创建版本标签。
+4. 在 GitHub Releases 发布该标签，上传安装版、免安装版和发行文件校验值。
+5. 检查下载链接、文件大小及 SHA-256，再确认 README 的启动步骤可复现。
+
+现有版本标签发布后应保持稳定；后续软件变更使用新的版本和标签。
+
+## GitHub 自动检查
+
+`Checks` 工作流检查依赖安装、自动测试和源码隐私规则。`Windows build` 可由维护者手动运行，构建两种 Windows EXE 并保存下载产物。
+
+自动检查配置在 `.github/workflows/`。不提交个人应用资料、浏览器缓存、API 密钥、依赖目录或构建缓存。安全问题按 [安全报告](../SECURITY.md) 处理。

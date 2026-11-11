@@ -14,9 +14,12 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build:win
+      - run: npm run build:portable
       - run: npm run test:release
       - uses: actions/upload-artifact@v4
         with:
           name: PaperDesk-V1.0.0-Windows-x64
-          path: release/PaperDesk-Windows-x64-Setup.exe
+          path: |
+            release/PaperDesk-Windows-x64-Setup.exe
+            release/PaperDesk-Windows-x64-Portable.exe
           if-no-files-found: error

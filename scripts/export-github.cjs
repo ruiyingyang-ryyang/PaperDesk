@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const root=path.resolve(__dirname,'..');
-const entries=['src','assets','scripts','test','docs','.github','package.json','package-lock.json','pnpm-lock.yaml','pnpm-workspace.yaml','electron-builder.json','README.md','LICENSE','CHANGELOG.md','CONTRIBUTING.md','SECURITY.md','THIRD_PARTY_NOTICES.md','.gitignore','.gitattributes'];
+const entries=['src','assets','scripts','test','docs','.github','package.json','package-lock.json','pnpm-lock.yaml','pnpm-workspace.yaml','electron-builder.json','README.md','LICENSE','CHANGELOG.md','CONTRIBUTING.md','CODE_OF_CONDUCT.md','SECURITY.md','THIRD_PARTY_NOTICES.md','.gitignore','.gitattributes'];
 const destination=process.argv[2];if(!destination)throw Error('Provide a new destination folder.');
 const out=path.resolve(destination);if(out===root||out.startsWith(root+path.sep)||fs.existsSync(out))throw Error('Choose a new folder outside the source tree.');
 const privacy=require('./distribution-privacy.cjs');
