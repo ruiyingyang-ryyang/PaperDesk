@@ -16,10 +16,16 @@
 
 ## V1.0.0 · 2026-11-11
 
-PaperDesk 的首个公开开源版本，面向 Windows 11 x64。
+PaperDesk 的首个公开开源版本，面向 Windows 11 x64；以下功能均为首次发布。免安装版与安装版都自带完整运行环境，无需另装 Node.js、Python、Git 或 Electron。
 
-提供论文筛选、每周推送、研究问答、历史问题搜索、学术润色与翻译、收藏标签及数据备份功能。支持 GPT 与 DeepSeek 接口、中英文界面、日间与夜间主题。
+- **论文发现**：按关键词组、关注期刊、作者、机构与发表年月组合筛选，读取 Crossref、OpenAlex 元数据，论文检索使用 SerpApi。
+- **每周推送**：自定义推送时间，自动收集前 7 个完整自然日发表且未推送过的论文，按周归纳并导出 Markdown。
+- **研究问答**：使用 GPT 或 DeepSeek 连续提问，支持按对话名称与提问正文搜索并定位历史问题。
+- **辅助写作**：按期刊与写作类型做润色、翻译或“润色并翻译”，左右对照原文与处理结果。
+- **文献整理**：星标收藏、自定义标签、通讯作者筛选，以及摘要翻译与通俗解释。
+- **阅读界面**：中英文界面、日间 / 夜间主题、字号调整与可折叠工具栏，支持 Markdown 与数学公式。
+- **数据与隐私**：研究数据保存在 `%APPDATA%\PaperDesk`，API 密钥由当前 Windows 用户的安全存储加密保存；JSON 备份不包含密钥存储。
+- **发布形式**：免安装 `PaperDesk-Windows-x64-Portable.exe`（首次运行解压到本机缓存）与安装版 `PaperDesk-Windows-x64-Setup.exe`（静默安装并创建快捷方式），并附 `SHA256SUMS.txt` 校验值。
+- **开源许可**：原创代码采用 MIT 许可证，第三方组件与字体保留各自许可，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。
 
-- [下载软件](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/tag/v1.0.0)
-- [安装与首次使用](README.md#下载后直接运行)
-- [MIT 许可证](LICENSE)
+安装与首次使用见 [README](README.md#下载后直接运行)，发行文件见 [V1.0.0 发布页](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/tag/v1.0.0)，许可见 [MIT 许可证](LICENSE)。
