@@ -1,0 +1,59 @@
+/* Text selection rules adapted from PDF.js 6.5.438, Copyright Mozilla Foundation.
+ * Licensed under Apache-2.0; see assets/vendor/pdfjs/LICENSE.
+ * Keep the PDF text layer scoped: the complete viewer stylesheet also defines
+ * global .sidebar, .empty and control rules that conflict with PaperDesk.
+ */
+#pdf-sheet {
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+  --user-unit: 1;
+}
+#pdf-sheet .textLayer {
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+  color-scheme: only light;
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+}
+#pdf-sheet .textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  user-select: text;
+}
+#pdf-sheet .textLayer > :not(.markedContent),
+#pdf-sheet .textLayer .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  z-index: 1;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+#pdf-sheet .textLayer .markedContent { display: contents; }
+#pdf-sheet .textLayer span[role="img"] { user-select: none; cursor: default; }
+#pdf-sheet .textLayer ::selection { background: #508cff70; color: transparent; }
+#pdf-sheet .textLayer.selectionRendering ::selection,
+#pdf-sheet .textLayer br::selection { background: transparent; }
+#pdf-sheet .textLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  cursor: default;
+  user-select: none;
+}
+#pdf-sheet .textLayer.selecting .endOfContent { top: 0; }

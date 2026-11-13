@@ -1,5 +1,7 @@
 # 维护与发布指南
 
+V1.0.1 已配置标签发布流程：推送 `main` 和 `v1.0.1` 后，Windows 工作流运行检查、构建 EXE / ZIP，生成校验值并使用 `docs/releases/v1.0.1.md` 发布更新说明。也可从项目根目录运行 `powershell -File scripts/publish-v101.ps1`；该脚本不强制覆盖远端分支或标签。
+
 [项目仓库](https://github.com/ruiyingyang-ryyang/PaperDesk) · [发布页](https://github.com/ruiyingyang-ryyang/PaperDesk/releases) · [返回主页](../README.md)
 
 ## 源码与发行文件

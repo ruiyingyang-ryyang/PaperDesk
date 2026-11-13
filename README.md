@@ -5,16 +5,22 @@
   <p><a href="https://github.com/ruiyingyang-ryyang/PaperDesk/releases/latest">下载软件</a> · <a href="docs/使用指南.md">使用指南</a> · <a href="https://github.com/ruiyingyang-ryyang/PaperDesk/issues">问题反馈</a></p>
 </div>
 
+## V1.0.1 更新
+
+最终完整交付包可直接运行 `release/Windows-x64/PaperDesk.exe`；更新前请从托盘退出旧版。源码、说明和发布工作流均在包内，运行资源位于被 Git 忽略的 `release/` 目录。刷新查询按钮及对话框重叠问题已修正。
+
+新增快速检索问题 / 问答 Markdown 与目录 PDF 导出、对话内 DS / GPT 切换、常用论文 PDF 与高亮、重点标题和 GPT 用量查询，修复长回答自动跳到底部。详见 [更新说明](docs/releases/v1.0.1.md)。
+
 ## 下载后直接运行
 
 **普通用户只需一台 Windows 11 x64 电脑和下方一个 EXE 文件。** 运行环境、字体和公式渲染资源已随软件提供，无需另装 Node.js、Python、Git 或 Electron。
 
 | 使用方式 | 下载文件 | 启动方法 |
 | --- | --- | --- |
-| 免安装，双击打开 | [PaperDesk-Windows-x64-Portable.exe](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/download/v1.0.0/PaperDesk-Windows-x64-Portable.exe) | 双击 EXE；首次运行自动解压运行文件，之后直接启动 |
-| 安装后使用桌面快捷方式 | [PaperDesk-Windows-x64-Setup.exe](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/download/v1.0.0/PaperDesk-Windows-x64-Setup.exe) | 双击安装包，静默安装完成后自动启动 |
+| 免安装，双击打开 | [PaperDesk-Windows-x64-Portable.exe](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/download/v1.0.1/PaperDesk-Windows-x64-Portable.exe) | 双击 EXE；首次运行自动解压运行文件，之后直接启动 |
+| 安装后使用桌面快捷方式 | [PaperDesk-Windows-x64-Setup.exe](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/download/v1.0.1/PaperDesk-Windows-x64-Setup.exe) | 双击安装包，静默安装完成后自动启动 |
 
-[全部版本](https://github.com/ruiyingyang-ryyang/PaperDesk/releases) · [V1.0.0 文件校验值](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/download/v1.0.0/SHA256SUMS.txt)
+[全部版本](https://github.com/ruiyingyang-ryyang/PaperDesk/releases) · [V1.0.1 文件校验值](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/download/v1.0.1/SHA256SUMS.txt)
 
 首次打开可以浏览界面。需要联网的功能，请准备自己的 API 密钥，再到应用的“检索设置”保存：
 
@@ -54,7 +60,7 @@
 - 论文、收藏、设置与对话默认保存在 `%APPDATA%\PaperDesk`；API 密钥由当前 Windows 用户的安全存储加密保护。
 - 使用 AI 时，提问、相关摘要或写作文本会发送给所选服务商；检索时会向相应服务发送检索条件。
 - JSON 备份排除密钥存储。分享备份前，请检查自己在正文或标签中填写的内容。
-- 免安装 EXE 的运行文件缓存在 `%LOCALAPPDATA%\PaperDeskPortable\1.0.0`，研究数据仍使用上述应用数据目录。
+- 免安装 EXE 的运行文件缓存在 `%LOCALAPPDATA%\PaperDeskPortable\1.0.1`，研究数据仍使用上述应用数据目录。
 - 更新或卸载默认保留研究库。“重新开始”会清空论文和对话等本机资料，请先导出重要内容。
 
 ## 常见问题

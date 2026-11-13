@@ -11,7 +11,7 @@ const root=path.resolve(__dirname,'..');
  const app=await _electron.launch({executablePath:env.PAPERDESK_TEST_EXE||require('electron'),args:[...(env.PAPERDESK_TEST_EXE?[]:[root]),'--paperdesk-test-profile='+profile],env,timeout:60000});
  try{
   const page=await app.firstWindow(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.waitForSelector('.nav');
-  assert.equal(await app.evaluate(({app})=>app.getVersion()),'1.0.0');
+  assert.equal(await app.evaluate(({app})=>app.getVersion()),'1.0.1');
   await page.click('[data-view="quick"]');await page.fill('#chat-input','保留的草稿');await page.fill('#chat-search','  ATMOSPHERIC  turbulence  ');
   assert.equal(await page.locator('.chat-history-item').count(),1);assert.equal(await page.inputValue('#chat-input'),'保留的草稿');assert((await page.locator('.chat-match-snippet').textContent()).includes('Atmospheric turbulence'));
   await page.click('.chat-open');assert.equal(await page.locator('.chat-search-target').getAttribute('data-message-id'),'q8');

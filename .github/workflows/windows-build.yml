@@ -1,7 +1,10 @@
 name: Windows build
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: windows-latest
@@ -13,13 +16,39 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: npm run test:v101
       - run: npm run build:win
       - run: npm run build:portable
       - run: npm run test:release
+      - name: Create ZIP and checksums
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid release version' }
+          Compress-Archive -Path dist/PaperDesk-win32-x64 -DestinationPath "release/PaperDesk-Windows11-x64-v$version.zip"
+          Get-ChildItem release -File | Where-Object { $_.Extension -in '.exe', '.zip' } | ForEach-Object {
+            $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          } | Set-Content release/SHA256SUMS.txt -Encoding utf8
       - uses: actions/upload-artifact@v4
         with:
-          name: PaperDesk-V1.0.0-Windows-x64
+          name: PaperDesk-Windows-x64
           path: |
             release/PaperDesk-Windows-x64-Setup.exe
             release/PaperDesk-Windows-x64-Portable.exe
+            release/PaperDesk-Windows11-x64-v*.zip
+            release/SHA256SUMS.txt
           if-no-files-found: error
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($env:RELEASE_TAG -ne "v$version") { throw 'Tag and package version differ' }
+          $notes = "docs/releases/$($env:RELEASE_TAG).md"
+          if (-not (Test-Path -LiteralPath $notes)) { throw 'Release notes are missing' }
+          gh release create $env:RELEASE_TAG release/PaperDesk-Windows-x64-Setup.exe release/PaperDesk-Windows-x64-Portable.exe "release/PaperDesk-Windows11-x64-v$version.zip" release/SHA256SUMS.txt --verify-tag --title "PaperDesk V$version" --notes-file $notes
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release creation failed' }

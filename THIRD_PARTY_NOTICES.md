@@ -14,3 +14,7 @@ PaperDesk 的原创代码采用根目录 MIT 许可证。以下资源保留各�
 主题来源：[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)，采用 [MIT 许可证](https://github.com/deepseek-ai/deepseek-harness/blob/master/LICENSE)；PaperDesk 的映射和调整位于 `src/harness-palette.css`。字体来自 Google Fonts 对应字体项目。
 
 开发及打包依赖见 `package.json` 与 `package-lock.json`，依赖安装后各自携带许可证。Electron 发行文件的许可证随生成的应用目录提供。项目许可证不改变用户导入论文、文本和其他材料的权利归属。
+
+## PDF.js
+
+PDF.js 6.5.438 by Mozilla and contributors is distributed under Apache-2.0. The local compatibility build, CMaps, standard fonts and image decoding resources are included in `assets/vendor/pdfjs/`. See its `LICENSE` and the license files in `cmaps/`, `standard_fonts/` and `wasm/` for component notices.

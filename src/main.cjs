@@ -3,6 +3,8 @@ const {app,BrowserWindow,ipcMain,session,Notification,Tray,Menu,nativeTheme,safe
 const fs=require('node:fs');const path=require('node:path');const {pathToFileURL}=require('node:url');const Scheduler=require('./scheduler.cjs');
 const F=require('./features.cjs'),W=require('./windows.cjs'),Reports=require('./weekly-export.cjs');
 const C=require('./core.cjs');const P=require('./providers.cjs');const AI=require('./ai.cjs');const crypto=require('node:crypto');
+const ChatExport=require('./chat-export.cjs'),Usage=require('./gpt-usage.cjs'),{Favorites}=require('./favorite-papers.cjs');
+let favorites;
 app.setName('PaperDesk');app.setAppUserModelId('PaperDesk.Research');
 let win,tray,store,controller,running=false,resetting=false,quitting=false,progress=null;
 const aiRequests=new Map();const abstractRequests=new Map();const titleRefreshAttempts=new Set();
@@ -18,11 +20,12 @@ if(!app.requestSingleInstanceLock()){app.quit();}else {
 }
 function show(){if(!win)return;win.show();if(win.isMinimized())win.restore();win.focus();}
 function send(channel,data){if(win&&!win.isDestroyed())win.webContents.send(channel,data);}
-function snapshot(){const {secrets,...publicData}=store.data;return {...publicData,hasSerpKey:!!secrets?.serpapi,hasDeepseekKey:!!secrets?.deepseek,hasGptKey:!!secrets?.gpt,activeAi:[...aiRequests.keys()],loadingAbstracts:[...abstractRequests.keys()],running,progress,nextRun:C.nextScheduled(store.data.settings).getTime(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,platform:process.platform};}
+function snapshot(){const {secrets,...publicData}=store.data;return {...publicData,hasSerpKey:!!secrets?.serpapi,hasDeepseekKey:!!secrets?.deepseek,hasGptKey:!!secrets?.gpt,hasGptAdminKey:!!secrets?.gptAdmin,activeAi:[...aiRequests.keys()],loadingAbstracts:[...abstractRequests.keys()],running,progress,nextRun:C.nextScheduled(store.data.settings).getTime(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,platform:process.platform};}
 function changed(){send('state',snapshot());}
 function notify(body){const title='PaperDesk';if(Notification.isSupported()){const n=new Notification({title,body,icon:applicationIcon()});n.on('click',show);n.show();}else if(process.platform==='win32'&&tray)tray.displayBalloon({title,content:body,iconType:'info'});}
 async function secret(name){const encrypted=store.data.secrets?.[name];if(!encrypted)return '';try{return (await safeStorage.decryptStringAsync(Buffer.from(encrypted,'base64'))).result;}catch{throw Error('KEY_DECRYPT_FAILED');}}
-async function activeAI(settings=store.data.settings){const options=AI.configuration(settings),key=await secret(options.provider);if(!key)throw Error(options.provider==='gpt'?'GPT_KEY_REQUIRED':'DEEPSEEK_KEY_REQUIRED');return {key,...options};}
+function trackUsage(record){Usage.record(store.data,record);store.save();}
+async function activeAI(settings=store.data.settings){const options=AI.configuration(settings),key=await secret(options.provider);if(!key)throw Error(options.provider==='gpt'?'GPT_KEY_REQUIRED':'DEEPSEEK_KEY_REQUIRED');return {key,...options,...(options.provider==='gpt'?{onUsage:trackUsage}:{})};}
 async function encryptedSecret(value){if(typeof value!=='string'||value.length>500)throw Error('INVALID_KEY');if(!value.trim())return '';if(!await safeStorage.isAsyncEncryptionAvailable())throw Error('SECURE_STORAGE_UNAVAILABLE');return (await safeStorage.encryptStringAsync(value.trim())).toString('base64');}
 async function schedule(enable,preferences=store.data.settings){
   if(process.platform!=='win32')throw Error('WINDOWS_ONLY');
@@ -74,8 +77,15 @@ function handle(name,fn){ipcMain.handle(name,async(e,...args)=>{
 });}
 function wire(){
   handle('get-state',()=>snapshot());
+  handle('chat-provider',provider=>{if(!['gpt','deepseek'].includes(provider))throw Error('INVALID_PROVIDER');if(aiRequests.size)throw Error('AI_BUSY');store.data.settings.chatProvider=provider;store.save();changed();return snapshot();});
+  handle('chat-export',input=>ChatExport.exportChat({BrowserWindow,dialog,win,chats:store.data.chats,input,language:store.data.settings.language}));
+  handle('favorite-upload',async()=>{const picked=await dialog.showOpenDialog(win,{properties:['openFile','multiSelections'],filters:[{name:'PDF',extensions:['pdf']}]});if(picked.canceled)return false;const result={added:0,duplicates:0,failed:0};for(const file of picked.filePaths){try{const r=favorites.add(file);r.added?result.added++:result.duplicates++;}catch{result.failed++;}}changed();return result;});
+  handle('favorite-read',id=>new Uint8Array(favorites.read(id)));
+  handle('favorite-update',input=>{favorites.update(input);changed();return snapshot();});
+  handle('favorite-highlight',input=>{const paper=favorites.annotate(input);return structuredClone(paper);});
+  handle('favorite-delete',input=>{favorites.remove(input);changed();return snapshot();});
   handle('save-settings',async input=>{if(running)throw Error('ALREADY_RUNNING');const valid=C.validateSettings(input);const weekly=C.validateSettings({...input.weekly,language:valid.language});const secrets={...store.data.secrets};
-    const sk=await encryptedSecret(input.serpapiKey||'');const dk=await encryptedSecret(input.deepseekKey||'');const gk=await encryptedSecret(input.gptKey||'');if(gk)secrets.gpt=gk;if(input.clearGpt)delete secrets.gpt;AI.configuration(input);if(sk)secrets.serpapi=sk;if(dk)secrets.deepseek=dk;
+    const sk=await encryptedSecret(input.serpapiKey||'');const dk=await encryptedSecret(input.deepseekKey||'');const gk=await encryptedSecret(input.gptKey||'');const admin=await encryptedSecret(input.gptAdminKey||'');if(admin)secrets.gptAdmin=admin;if(input.clearGptAdmin)delete secrets.gptAdmin;if(gk)secrets.gpt=gk;if(input.clearGpt)delete secrets.gpt;AI.configuration(input);if(sk)secrets.serpapi=sk;if(dk)secrets.deepseek=dk;
     if(input.clearSerpapi)delete secrets.serpapi;if(input.clearDeepseek)delete secrets.deepseek;delete secrets.openalex;
     if(!AI.MODELS.includes(input.deepseekModel))throw Error('INVALID_MODEL');
     if(store.data.settings.scheduleEnabled&&(!secrets.serpapi||!C.queryPlan(weekly).length))throw Error('DISABLE_SCHEDULE_FIRST');
@@ -116,14 +126,14 @@ function wire(){
   });
   handle('chat-send',async({id,question})=>{
     if(typeof question!=='string'||!question.trim()||question.length>12000)throw Error('INVALID_QUESTION');
-    const {key,...aiOptions}=await activeAI();
+    const {key,...aiOptions}=await activeAI({...store.data.settings,aiProvider:store.data.settings.chatProvider||store.data.settings.aiProvider});
     let chat=store.data.chats.find(c=>c.id===id);
     if(id&&!chat)throw Error('NOT_FOUND');
     if(!chat){chat={id:crypto.randomUUID(),title:question.trim().slice(0,48),createdAt:Date.now(),updatedAt:Date.now(),messages:[]};store.data.chats.unshift(chat);}
     if(aiRequests.has(chat.id))throw Error('AI_BUSY');
     const control=new AbortController();aiRequests.set(chat.id,control);
     chat.messages.push({id:crypto.randomUUID(),role:'user',content:question.trim(),createdAt:Date.now()});
-    const answer={id:crypto.randomUUID(),role:'assistant',content:'',status:'pending',createdAt:Date.now()};chat.messages.push(answer);chat.updatedAt=Date.now();
+    const answer={id:crypto.randomUUID(),role:'assistant',provider:aiOptions.provider,model:aiOptions.model,content:'',status:'pending',createdAt:Date.now()};chat.messages.push(answer);chat.updatedAt=Date.now();
     store.save();changed();
     try{answer.content=await AI.complete(key,AI.conversationMessages(chat),{...aiOptions,signal:control.signal});answer.status='complete';}
     catch(e){answer.status='failed';answer.error=e.message;}
@@ -141,22 +151,22 @@ function wire(){
     try{return await AI.complete(key,messages,{...options,signal:control.signal});}
     finally{aiRequests.delete('writing');changed();}
   });
-  handle('test-gpt',async input=>{const key=input?.key?.trim()||await secret('gpt');return AI.complete(key,[{role:'user',content:'Reply OK.'}],{provider:'gpt',model:input?.model||store.data.settings.gptModel||'gpt-4.1'});});
-  handle('api-balance',async()=>{const query=async(name,fetchBalance)=>{try{const key=await secret(name);if(!key)return {configured:false};return {configured:true,...await fetchBalance(key)};}catch(e){return {configured:true,error:e.message};}};const [deepseek,serpapi]=await Promise.all([query('deepseek',AI.balance),query('serpapi',P.testSerpapi)]);return {deepseek,serpapi,checkedAt:Date.now()};});
+  handle('test-gpt',async input=>{const key=input?.key?.trim()||await secret('gpt');return AI.complete(key,[{role:'user',content:'Reply OK.'}],{provider:'gpt',model:input?.model||store.data.settings.gptModel||'gpt-4.1',onUsage:trackUsage});});
+  handle('api-balance',async(input={})=>{const window=Usage.range(input.period||'month');const query=async(name,fetchBalance)=>{try{const key=await secret(name);if(!key)return {configured:false};return {configured:true,...await fetchBalance(key)};}catch(e){return {configured:true,error:e.message};}};const [deepseek,serpapi,gpt]=await Promise.all([query('deepseek',AI.balance),query('serpapi',P.testSerpapi),query('gptAdmin',key=>Usage.official(key,window))]);return {deepseek,serpapi,gpt:{...gpt,local:Usage.local(store.data,window),window},checkedAt:Date.now()};});
   handle('ai-cancel',id=>{aiRequests.get(id)?.abort();return true;});
   handle('test-deepseek',async input=>{const key=input?.key?.trim()||await secret('deepseek');if(!key)throw Error('DEEPSEEK_KEY_REQUIRED');let r;try{r=await fetch('https://api.deepseek.com/models',{headers:{Authorization:'Bearer '+key},signal:AbortSignal.timeout(15000)});}catch{throw Error('NETWORK_ERROR');}if(!r.ok)throw Error(r.status===401?'DEEPSEEK_AUTH':'DEEPSEEK_HTTP_'+r.status);return true;});
   handle('export',async type=>{
     if(!['json','csv'].includes(type))throw Error('INVALID_FORMAT');
     const {canceled,filePath}=await dialog.showSaveDialog(win,{defaultPath:'PaperDesk-'+new Date().toISOString().slice(0,10)+'.'+type,filters:[{name:type.toUpperCase(),extensions:[type]}]});
-    if(canceled)return false;const content=type==='csv'?C.exportCSV(store.data.papers,store.data.settings.journals):JSON.stringify({version:1,papers:store.data.papers,chats:store.data.chats},null,2);fs.writeFileSync(filePath,content);return true;
+    if(canceled)return false;const content=type==='csv'?C.exportCSV(store.data.papers,store.data.settings.journals):JSON.stringify({version:1,papers:store.data.papers,chats:store.data.chats,favoritePapers:favorites.backup()},null,2);fs.writeFileSync(filePath,content);return true;
   });
   handle('import',async()=>{if(running)throw Error('ALREADY_RUNNING');const {canceled,filePaths}=await dialog.showOpenDialog(win,{properties:['openFile'],filters:[{name:'PaperDesk backup',extensions:['json']}]});if(canceled)return false;
-    if(fs.statSync(filePaths[0]).size>50*1024*1024)throw Error('FILE_TOO_LARGE');const data=JSON.parse(fs.readFileSync(filePaths[0],'utf8'));if(data.version!==1||!Array.isArray(data.papers)||data.papers.length>50000)throw Error('INVALID_BACKUP');
-    const normalized=data.papers.map(C.normalizePaper);for(const p of normalized)C.upsert(store.data.papers,p);
-    if(Array.isArray(data.chats))for(const c of data.chats.slice(0,5000)){if(typeof c.id!=='string'||!Array.isArray(c.messages)||store.data.chats.some(x=>x.id===c.id))continue;store.data.chats.push({id:C.text(c.id,100),title:C.text(c.title,80),createdAt:Number(c.createdAt)||Date.now(),updatedAt:Number(c.updatedAt)||Date.now(),messages:c.messages.slice(0,1000).filter(m=>['user','assistant'].includes(m.role)).map(m=>({id:crypto.randomUUID(),role:m.role,content:C.text(m.content,100000),status:m.role==='assistant'?(m.status==='complete'?'complete':'failed'):undefined,error:m.status==='complete'?undefined:'AI_INTERRUPTED'}))});}store.save();changed();return normalized.length;
+    if(fs.statSync(filePaths[0]).size>700*1024*1024)throw Error('FILE_TOO_LARGE');const data=JSON.parse(fs.readFileSync(filePaths[0],'utf8'));if(data.version!==1||!Array.isArray(data.papers)||data.papers.length>50000)throw Error('INVALID_BACKUP');
+    const normalized=data.papers.map(C.normalizePaper);if(data.favoritePapers)favorites.restore(data.favoritePapers);for(const p of normalized)C.upsert(store.data.papers,p);
+    if(Array.isArray(data.chats))for(const c of data.chats.slice(0,5000)){if(typeof c.id!=='string'||!Array.isArray(c.messages)||store.data.chats.some(x=>x.id===c.id))continue;store.data.chats.push({id:C.text(c.id,100),title:C.text(c.title,80),createdAt:Number(c.createdAt)||Date.now(),updatedAt:Number(c.updatedAt)||Date.now(),messages:c.messages.slice(0,1000).filter(m=>['user','assistant'].includes(m.role)).map(m=>({id:crypto.randomUUID(),role:m.role,provider:['deepseek','gpt'].includes(m.provider)?m.provider:undefined,model:C.text(m.model,100),content:C.text(m.content,100000),status:m.role==='assistant'?(m.status==='complete'?'complete':'failed'):undefined,error:m.status==='complete'?undefined:'AI_INTERRUPTED'}))});}store.save();changed();return normalized.length;
   });
   handle('appearance',input=>{if(!input||!['light','dark'].includes(input.theme)||!Number.isInteger(input.fontSize)||input.fontSize<11||input.fontSize>20)throw Error('INVALID_APPEARANCE');store.data.settings.appearance={theme:input.theme,fontSize:input.fontSize};nativeTheme.themeSource=input.theme;store.save();changed();return snapshot();});
-  handle('reset-app',async input=>{if(input?.confirm!==true)throw Error('RESET_CONFIRM_REQUIRED');if(running||resetting||aiRequests.size||abstractRequests.size)throw Error('RESET_BUSY');resetting=true;try{if(store.data.settings.scheduleEnabled)await schedule(false);store.resetPreservingAPI();titleRefreshAttempts.clear();nativeTheme.themeSource='light';progress=null;changed();return snapshot();}finally{resetting=false;}});
+  handle('reset-app',async input=>{if(input?.confirm!==true)throw Error('RESET_CONFIRM_REQUIRED');if(running||resetting||aiRequests.size||abstractRequests.size)throw Error('RESET_BUSY');resetting=true;try{if(store.data.settings.scheduleEnabled)await schedule(false);store.resetPreservingAPI();favorites.clear();titleRefreshAttempts.clear();nativeTheme.themeSource='light';progress=null;changed();return snapshot();}finally{resetting=false;}});
   handle('export-weekly-md',async input=>{
     if(aiRequests.has('weekly-export'))throw Error('AI_BUSY');
     const chosen=F.selectWeekly(store.data.papers,store.data.runs,input);if(!chosen.length)throw Error('EXPORT_SELECTION_REQUIRED');
@@ -178,6 +188,7 @@ async function ensureAbstract(id){
 }
 async function boot(){
   store=new C.Store(app.getPath('userData'));store.data.secrets ||= {};
+  favorites=new Favorites(store);
   nativeTheme.themeSource=store.data.settings.appearance.theme==='dark'?'dark':'light';
   for(const r of store.data.runs)if(r.status==='running'){r.status='interrupted';r.error='INTERRUPTED';r.endedAt=Date.now();}store.save();
   win=new BrowserWindow({width:1370,height:900,minWidth:420,minHeight:420,resizable:true,maximizable:true,thickFrame:true,backgroundColor:'#f6f6f7',autoHideMenuBar:true,title:'PaperDesk',icon:applicationIcon(),show:false,webPreferences:{preload:path.join(__dirname,'preload.cjs'),sandbox:true,contextIsolation:true,nodeIntegration:false}});

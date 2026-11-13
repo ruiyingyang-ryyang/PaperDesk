@@ -4,7 +4,7 @@ const privateDirectory=/^(?:user[ _-]?data|appdata|profiles?|logs?|crashpad|loca
 const privateFile=/^(?:library\.json(?:\..*)?|\.env(?:\..*)?|cookies(?:-journal)?|login data(?:-journal)?|local state|preferences|(?:secrets?|credentials?)(?:\.[^/]*)?)$|\.(?:log|bak|dmp|key|pem)$/i;
 function savedSecretMarkers(){
  const markers=[];if(!process.env.APPDATA)return markers;
- for(const name of ['library.json','library.json.bak']){const file=path.join(process.env.APPDATA,'PaperDesk',name);if(!fs.existsSync(file))continue;try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const value of [data.secrets?.serpapi,data.secrets?.deepseek,data.secrets?.gpt,data.settings?.serpapiKey,data.settings?.deepseekKey,data.settings?.gptKey])if(typeof value==='string'&&value.length>=16)markers.push(value);}catch{throw Error('Cannot inspect saved credential markers; sharing check stopped.');}}
+ for(const name of ['library.json','library.json.bak']){const file=path.join(process.env.APPDATA,'PaperDesk',name);if(!fs.existsSync(file))continue;try{const data=JSON.parse(fs.readFileSync(file,'utf8'));for(const value of [data.secrets?.serpapi,data.secrets?.deepseek,data.secrets?.gpt,data.secrets?.gptAdmin,data.settings?.serpapiKey,data.settings?.deepseekKey,data.settings?.gptKey,data.settings?.gptAdminKey])if(typeof value==='string'&&value.length>=16)markers.push(value);}catch{throw Error('Cannot inspect saved credential markers; sharing check stopped.');}}
  return [...new Set(markers)];
 }
 function assertShareable(directory,{knownSecrets=savedSecretMarkers()}={}){
@@ -16,7 +16,7 @@ function assertShareable(directory,{knownSecrets=savedSecretMarkers()}={}){
   // Only source/text formats need pattern checks; binary archives are verified
   // against the independently checked staging tree by verify-release.cjs.
   if(/\.(?:c?js|mjs|json|html|css|md|txt|ya?ml|env|ini|config)$/i.test(entry.name)){
-   const value=buffer.toString('utf8');if(/\bsk-[A-Za-z0-9_-]{20,}\b/.test(value)||/["']?(?:api[_-]?key|serpapiKey|deepseekKey|gptKey|authorization|serpapi|deepseek)["']?\s*[:=]\s*["'](?:Bearer\s+)?[A-Za-z0-9_-]{24,}["']/i.test(value))fail(file,'embedded API credential');
+   const value=buffer.toString('utf8');if(/\bsk-[A-Za-z0-9_-]{20,}\b/.test(value)||/["']?(?:api[_-]?key|serpapiKey|deepseekKey|gptKey|gptAdminKey|authorization|serpapi|deepseek)["']?\s*[:=]\s*["'](?:Bearer\s+)?[A-Za-z0-9_-]{24,}["']/i.test(value))fail(file,'embedded API credential');
   }files++;
  }}}
  walk(root);return files;

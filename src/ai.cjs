@@ -10,7 +10,7 @@ function configuration(settings={}){
   if(provider==='deepseek'?!MODELS.includes(model):!/^gpt-[a-zA-Z0-9._-]{1,100}$/.test(model))throw Error('INVALID_MODEL');
   return {provider,model};
 }
-async function complete(key,messages,{model='deepseek-flash',provider='deepseek',signal,fetcher=fetch}={}){
+async function complete(key,messages,{model='deepseek-flash',provider='deepseek',signal,fetcher=fetch,onUsage}={}){
   configuration({aiProvider:provider,deepseekModel:model,gptModel:model});
   if(!key)throw Error(provider==='gpt'?'GPT_KEY_REQUIRED':'DEEPSEEK_KEY_REQUIRED');
   const active=signal?AbortSignal.any([signal,AbortSignal.timeout(120000)]):AbortSignal.timeout(120000);
@@ -24,6 +24,7 @@ async function complete(key,messages,{model='deepseek-flash',provider='deepseek'
   }catch{throw Error(signal?.aborted?'AI_CANCELLED':active.aborted?'AI_TIMEOUT':'NETWORK_ERROR');}
   if(!response.ok)throw Error(provider==='gpt'?({401:'GPT_AUTH',429:'GPT_RATE_LIMIT'})[response.status]||'GPT_HTTP_'+response.status:({401:'DEEPSEEK_AUTH',402:'DEEPSEEK_BALANCE',429:'DEEPSEEK_RATE_LIMIT'})[response.status]||'DEEPSEEK_HTTP_'+response.status);
   let data;try{data=await response.json();}catch{throw Error('INVALID_RESPONSE');}
+  if(onUsage)onUsage({model,usage:data.usage});
   const answer=data.choices?.[0]?.message?.content;
   if(typeof answer!=='string'||!answer.trim())throw Error('INVALID_RESPONSE');
   if(data.choices[0].finish_reason==='length')throw Error('AI_TRUNCATED');
