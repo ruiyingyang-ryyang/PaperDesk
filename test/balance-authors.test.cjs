@@ -16,11 +16,11 @@ test('multiple author/institution inputs preserve names with commas and reject e
 });
 test('multiple institutions match the same confirmed author, not a different coauthor',()=>{
  const p=C.normalizePaper({title:'A',authors:[{name:'Ming Li',corresponding:true},{name:'Alice Chen',first:true}],authorDetails:[{name:'Ming Li',affiliations:['University B']},{name:'Alice Chen',affiliations:['University A']}]});
- assert(P.matchesAuthor(p,{name:'Ming Li',school:'University A; University B',role:'corresponding'}));assert(!P.matchesAuthor(p,{name:'Ming Li',school:'University A; University C',role:'corresponding'}));
+ assert(P.matchesAuthor(p,{name:'Ming Li',school:'University B',role:'corresponding'}));assert(!P.matchesAuthor(p,{name:'Ming Li',school:'University A',role:'corresponding'}));
 });
 test('multi-author results are unioned once with the original batch association',async()=>{
  const papers=[],query={name:'Ming Li; Alice Chen',school:'University A; University B',role:'either'};
- await P.searchAuthors({groups:[],journals:[],maxPages:1},'sample',query,{onProgress:()=>{},onPaper:p=>papers.push(p),fetcher:async raw=>{const url=new URL(raw);if(url.pathname==='/authors'){const name=url.searchParams.get('search');return ok({results:[{id:'https://openalex.org/'+(name==='Ming Li'?'A1':'A2'),display_name:name,last_known_institutions:[{display_name:'University B'}]}]});}return ok({meta:{count:1},results:[{display_name:'Shared paper',doi:'https://doi.org/10.1000/shared',authorships:[{author:{id:'https://openalex.org/A1',display_name:'Ming Li'},author_position:'last',is_corresponding:true},{author:{id:'https://openalex.org/A2',display_name:'Alice Chen'},author_position:'first'}]}]});}});
+ await P.searchAuthors({groups:[],journals:[],maxPages:1},'sample',query,{onProgress:()=>{},onPaper:p=>papers.push(p),fetcher:async raw=>{const url=new URL(raw);if(url.pathname==='/authors'){const name=url.searchParams.get('search');return ok({results:[{id:'https://openalex.org/'+(name==='Ming Li'?'A1':'A2'),display_name:name,last_known_institutions:[{display_name:name==='Ming Li'?'University A':'University B'}]}]});}return ok({meta:{count:1},results:[{display_name:'Shared paper',doi:'https://doi.org/10.1000/shared',authorships:[{author:{id:'https://openalex.org/A1',display_name:'Ming Li'},author_position:'last',is_corresponding:true,institutions:[{display_name:'University A'}]},{author:{id:'https://openalex.org/A2',display_name:'Alice Chen'},author_position:'first',institutions:[{display_name:'University B'}]}]}]});}});
  assert.equal(papers.length,1);assert.deepEqual(papers[0].authorSearches,[query]);
 });
 test('month ranges include both boundary months, reject unknown months and handle leap years',()=>{

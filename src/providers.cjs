@@ -1,5 +1,5 @@
 'use strict';
-const {norm,clean,cleanAbstract,doiFrom,fromScholar,queryPlan,safeURL,normalizePaper,corresponding,peopleList,monthOnly,isTruncatedTitle,mergeAuthorDetails}=require('./core.cjs');
+const {norm,clean,cleanAbstract,doiFrom,fromScholar,queryPlan,safeURL,normalizePaper,corresponding,authorPairs,identityText,monthOnly,isTruncatedTitle,mergeAuthorDetails}=require('./core.cjs');
 const F=require('./features.cjs');
 const {publisherMetadata}=require('./publisher.cjs');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -32,7 +32,7 @@ async function searchScholar(settings,key,{signal,onPaper,onProgress,fetcher=fet
       if(data.error)throw Error('SERPAPI_ERROR');
       if(!Array.isArray(data.organic_results) && data.search_information?.organic_results_state!=='Fully empty')throw Error('INVALID_RESPONSE');
       const results=data.organic_results||[];stats.pages++;let fresh=0;
-      for(const r of results) {if(!r.title)continue;const p=fromScholar(r,task.group);if(seen.has(p.id))continue;seen.add(p.id);fresh++;stats.received++;await onPaper(p);}
+      for(const r of results) {if(!r.title)continue;const p=fromScholar(r,task.group);p.groups=task.groups||[task.group];if(seen.has(p.id))continue;seen.add(p.id);fresh++;stats.received++;await onPaper(p);}
       const more=!!(data.serpapi_pagination?.next||data.pagination?.next);
       if(!more||!results.length)break;
       if(!fresh){stats.capped.push({query:task.q,reason:'repeated_page'});break;}
@@ -77,7 +77,7 @@ async function enrichPaper(input,signal,fetcher=fetch) {
       p.year=p.year||String(w.publication_year||'');
       p.publicationDate=p.publicationDate||F.dateOnly(w.publication_date);
       p.pdf=p.pdf||safeURL(w.best_oa_location?.pdf_url);
-      if(w.authorships?.length){p.authors=w.authorships.map((a,i)=>({name:a.author?.display_name||a.raw_author_name||'',first:a.author_position?a.author_position==='first':i===0,corresponding:a.is_corresponding===true,evidence:'OpenAlex is_corresponding'}));p.authorDetails=mergeAuthorDetails(p.authorDetails,w.authorships.map(a=>({name:a.author?.display_name||a.raw_author_name||'',id:a.author?.id,affiliations:[...(a.institutions||[]).map(i=>i.display_name),...(a.raw_affiliation_strings||[])]})));}
+      if(w.authorships?.length){p.authors=w.authorships.map((a,i)=>({name:a.author?.display_name||a.raw_author_name||'',id:safeURL(a.author?.id),first:a.author_position?a.author_position==='first':i===0,corresponding:a.is_corresponding===true,evidence:'OpenAlex is_corresponding'}));p.authorDetails=mergeAuthorDetails(p.authorDetails,w.authorships.map(a=>({name:a.author?.display_name||a.raw_author_name||'',id:a.author?.id,affiliations:[...(a.institutions||[]).map(i=>i.display_name),...(a.raw_affiliation_strings||[])]})));}
       // OpenAlex keywords are machine-indexed topics, not publisher author keywords.
       p.topics=(w.keywords||[]).map(k=>k.display_name);p.sources=[...new Set([...p.sources,'OpenAlex'])];
     }catch(e){if(signal?.aborted)throw e;failures.push('OpenAlex: '+e.message);}
@@ -104,28 +104,24 @@ async function enrichPaper(input,signal,fetcher=fetch) {
   }
   p.publicationMonth=monthOnly(p.publicationDate)||p.publicationMonth||'';p.abstract=cleanAbstract(p.abstract);p.metadataStatus=failures.length?'partial':(p.doi?'checked':'unmatched');p.metadataNote=failures.join('; ');return p;
 }
-function matchesAuthor(p,{name,school,role='either'},ids=[]){
-  const schools=peopleList(school,200);
-  return p.authors.some(a=>{const detail=(p.authorDetails||[]).find(d=>norm(d.name)===norm(a.name));const identity=detail?.id&&ids.includes(detail.id);
-    return (identity||norm(a.name)===norm(name))&&(!schools.length||identity||detail?.affiliations?.some(s=>schools.some(school=>norm(s).includes(norm(school)))))&&(role==='first'?a.first:role==='corresponding'?a.corresponding:(a.first||a.corresponding));});
+function matchesAuthor(p,query){
+  const pairs=authorPairs(query);
+  return pairs.some(({name,school,role})=>p.authors.some(a=>identityText(a.name)===identityText(name)&&
+    (role==='first'?a.first:role==='corresponding'?a.corresponding:(a.first||a.corresponding))&&
+    (p.authorDetails||[]).some(d=>identityText(d.name)===identityText(a.name)&&(!a.id||d.id===a.id)&&d.affiliations?.some(s=>identityText(s)===identityText(school)))));
 }
 function fromOpenAlex(w){
   return normalizePaper({title:w.display_name||w.title,doi:w.doi,url:w.primary_location?.landing_page_url||w.doi,year:w.publication_year,publicationDate:F.dateOnly(w.publication_date),journal:w.primary_location?.source?.display_name,abstract:reconstructAbstract(w.abstract_inverted_index),pdf:w.best_oa_location?.pdf_url,
-    authors:(w.authorships||[]).map((a,i)=>({name:a.author?.display_name||a.raw_author_name,first:a.author_position?a.author_position==='first':i===0,corresponding:a.is_corresponding===true,evidence:'OpenAlex authorship'})),
+    authors:(w.authorships||[]).map((a,i)=>({name:a.author?.display_name||a.raw_author_name,id:a.author?.id,first:a.author_position?a.author_position==='first':i===0,corresponding:a.is_corresponding===true,evidence:'OpenAlex authorship'})),
     authorDetails:(w.authorships||[]).map(a=>({name:a.author?.display_name||a.raw_author_name,id:a.author?.id,affiliations:[...(a.institutions||[]).map(x=>x.display_name),...(a.raw_affiliation_strings||[])]})),sources:['OpenAlex'],metadataStatus:'checked'});
 }
 async function searchAuthor(settings,key,query,{signal,onPaper,onProgress,fetcher=fetch}){
-  let authors=[];const schools=peopleList(query.school,200);
+  const pairs=authorPairs(query);if(pairs.length!==1)throw Error('INVALID_AUTHOR_SEARCH');query=pairs[0];
+  let authors=[];
   try{const url=new URL('https://api.openalex.org/authors');url.search=new URLSearchParams({search:query.name,'per-page':'25'});const data=await requestJSON(url,signal,fetcher);
-    const candidates=(data.results||[]).filter(a=>[a.display_name,...(a.display_name_alternatives||[])].some(n=>norm(n)===norm(query.name)));
+    const candidates=(data.results||[]).filter(a=>identityText(a.display_name)===identityText(query.name));
     const institutions=a=>[...(a.last_known_institutions||[]),...(a.affiliations||[]).map(x=>x.institution)];
-    const authorIds=new Set();
-    if(!schools.length)authors=candidates;else for(const school of schools){
-      let matches=candidates.filter(a=>institutions(a).some(i=>norm(i?.display_name).includes(norm(school))));
-      if(!matches.length&&candidates.length){const lookup=new URL('https://api.openalex.org/institutions');lookup.search=new URLSearchParams({search:school,'per-page':'10'});const found=(await requestJSON(lookup,signal,fetcher)).results||[];
-        const ids=found.filter(i=>[i.display_name,...(i.display_name_alternatives||[]),...(i.display_name_acronyms||[])].some(n=>norm(n)===norm(school))).map(i=>i.id);matches=candidates.filter(a=>institutions(a).some(i=>ids.includes(i?.id)));}
-      for(const match of matches)if(!authorIds.has(match.id)){authorIds.add(match.id);authors.push(match);}
-    }
+    authors=candidates.filter(a=>a.id&&institutions(a).some(i=>identityText(i?.display_name)===identityText(query.school)));
   }catch(e){if(signal?.aborted)throw e;}
   let rejected=0;
   if(authors.length){
@@ -135,15 +131,15 @@ async function searchAuthor(settings,key,query,{signal,onPaper,onProgress,fetche
       if(!settings.publicationWindow){const bounds=F.monthBounds(settings);let filter=url.searchParams.get('filter');if(bounds.start)filter+=',from_publication_date:'+bounds.start;if(bounds.end)filter+=',to_publication_date:'+bounds.end;url.searchParams.set('filter',filter);}
       if(settings.publicationWindow){const last=new Date(settings.publicationWindow.end+'T12:00:00');last.setDate(last.getDate()-1);url.searchParams.set('filter',url.searchParams.get('filter')+',from_publication_date:'+settings.publicationWindow.start+',to_publication_date:'+F.localDate(last));}
       const data=await requestJSON(url,signal,fetcher);if(!Array.isArray(data.results))throw Error('INVALID_RESPONSE');stats.pages++;
-      for(const work of data.results){const p=fromOpenAlex(work);if(settings.journals.length&&!settings.journals.some(j=>norm(j)===norm(p.journal)))continue;if(matchesAuthor(p,query,ids)){p.authorSearches=[query];await onPaper(p);stats.received++;}else rejected++;}
+      for(const work of data.results){const p=fromOpenAlex(work);if(settings.journals.length&&!settings.journals.some(j=>norm(j)===norm(p.journal)))continue;if(matchesAuthor(p,query)){p.authorSearches=[query];await onPaper(p);stats.received++;}else rejected++;}
       if(page*50>=(data.meta?.count||0)||!data.results.length)break;if(page===settings.maxPages)stats.capped.push({reason:'page_limit'});
     }stats.finished=1;stats.rejected=rejected;return stats;
   }
   if(!key)throw Error('SERPAPI_KEY_REQUIRED');
   const quote=s=>'"'+s.replace(/["\\]/g,' ').trim()+'"';
-  const base=queryPlan({...settings,authorName:''});const journals=settings.journals.length?settings.journals:[''];const plan=(base.length?base:journals.map(j=>({group:0,journal:j,q:j?'source:'+quote(j):''}))).map(p=>({...p,q:'author:'+quote(query.name)+(schools.length?' ('+schools.map(quote).join(' OR ')+')':'')+' '+p.q}));
-  const stats=await searchScholar(settings,key,{signal,fetcher,plan,onProgress,onPaper:async raw=>{const p=await enrichPaper(raw,signal,fetcher);if(matchesAuthor(p,query)){p.authorSearches=[query];await onPaper(p);}else rejected++;}});
-  stats.rejected=rejected;return stats;
+  const base=queryPlan({...settings,authorName:''});const journals=settings.journals.length?settings.journals:[''];const plan=(base.length?base:journals.map(j=>({group:0,journal:j,q:j?'source:'+quote(j):''}))).map(p=>({...p,q:'author:'+quote(query.name)+' '+quote(query.school)+' '+p.q}));
+  let accepted=0;const stats=await searchScholar(settings,key,{signal,fetcher,plan,onProgress,onPaper:async raw=>{const p=await enrichPaper(raw,signal,fetcher);if(matchesAuthor(p,query)){p.authorSearches=[query];await onPaper(p);accepted++;}else rejected++;}});
+  stats.received=accepted;stats.rejected=rejected;return stats;
 }
 async function testSerpapi(key,{fetcher=fetch}={}){
   if(!key)throw Error('SERPAPI_KEY_REQUIRED');let response;
@@ -153,5 +149,5 @@ async function testSerpapi(key,{fetcher=fetch}={}){
   if(account.error)throw Error('SERPAPI_AUTH');if(typeof account.account_id!=='string'||!Number.isFinite(Number(account.total_searches_left)))throw Error('INVALID_RESPONSE');
   return {remaining:Number(account.total_searches_left)};
 }
-async function searchAuthors(settings,key,query,options){const names=peopleList(query.name),seen=new Set(),combined={queries:0,pages:0,received:0,capped:[],finished:0,rejected:0};if(!names.length)throw Error('INVALID_AUTHOR_SEARCH');for(let i=0;i<names.length;i++){options.signal?.throwIfAborted();const stats=await searchAuthor(settings,key,{...query,name:names[i]},{...options,onProgress:p=>options.onProgress({...p,query:i+1,total:names.length}),onPaper:async p=>{const identity=p.doi||p.id;if(seen.has(identity))return;seen.add(identity);p.authorSearches=[query];await options.onPaper(p);}});for(const k of ['queries','pages','received','finished','rejected'])combined[k]+=stats[k]||0;combined.capped.push(...stats.capped);}return combined;}
+async function searchAuthors(settings,key,query,options){const pairs=authorPairs(query),seen=new Set(),combined={queries:0,pages:0,received:0,capped:[],finished:0,rejected:0};if(!pairs.length)throw Error('INVALID_AUTHOR_SEARCH');for(let i=0;i<pairs.length;i++){options.signal?.throwIfAborted();const stats=await searchAuthor(settings,key,pairs[i],{...options,onProgress:p=>options.onProgress({...p,author:i+1,authors:pairs.length}),onPaper:async p=>{const identity=p.doi||p.id;if(seen.has(identity))return;seen.add(identity);p.authorSearches=[query];await options.onPaper(p);combined.received++;}});for(const k of ['queries','pages','finished','rejected'])combined[k]+=stats[k]||0;combined.capped.push(...stats.capped);}return combined;}
 module.exports={requestJSON,searchScholar,enrichPaper,reconstructAbstract,matchesAuthor,fromOpenAlex,searchAuthor,searchAuthors,testSerpapi};

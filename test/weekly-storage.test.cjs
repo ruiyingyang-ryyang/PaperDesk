@@ -15,7 +15,7 @@ test('weekly dates use exactly the seven complete calendar days before the push 
 });
 test('partial publication dates are never invented for weekly inclusion',()=>{assert.equal(F.fromParts([2026]),'');assert.equal(F.fromParts([2026,11]),'');assert.equal(F.fromParts([2026,11,6]),'2026-11-06');assert.equal(F.fromParts([2026,2,30]),'');});
 test('author-only settings are searchable and manual year limits never leak into weekly settings',()=>{
- const s=C.defaults().settings;s.authorName='Alice Chen';s.yearFrom=2020;s.yearTo=2026;s.weekly.authorName='Ming Li';
+ const s=C.defaults().settings;s.authorName='Alice Chen';s.authorSchool='University A';s.yearFrom=2020;s.yearTo=2026;s.weekly.authorName='Ming Li';s.weekly.authorSchool='University B';
  assert(C.queryPlan(C.searchSettings(s)).some(p=>p.q.includes('author:"Alice Chen"')));assert.equal(C.searchSettings(s,true).yearFrom,null);assert.equal(C.searchSettings(s,true).authorName,'Ming Li');
  assert.throws(()=>C.validateSettings({...s,yearFrom:2026,yearTo:2020}),/INVALID_YEAR_RANGE/);
 });

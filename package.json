@@ -1,7 +1,7 @@
 {
   "name": "paperdesk",
   "productName": "PaperDesk",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Bilingual research workbench with DeepSeek, GPT and academic writing",
   "main": "src/main.cjs",
   "author": "PaperDesk contributors",
@@ -25,7 +25,8 @@
     "build:portable": "node scripts/build-portable.cjs",
     "test:v101": "electron scripts/verify-v101-inprocess.cjs",
     "test:v101:playwright": "node scripts/verify-v101.cjs",
-    "test:layout": "node scripts/verify-layout.cjs"
+    "test:layout": "node scripts/verify-layout.cjs",
+    "test:v102-ui": "node scripts/verify-v102-ui.cjs"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",

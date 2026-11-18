@@ -1,7 +1,14 @@
 name: Windows build
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the package version after all checks pass
+        type: boolean
+        default: false
   push:
+    branches: ['main']
+    paths: ['package.json']
     tags: ['v*']
 permissions:
   contents: write
@@ -25,6 +32,8 @@ jobs:
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid release version' }
+          Copy-Item -LiteralPath CHANGELOG.md -Destination dist/PaperDesk-win32-x64/CHANGELOG.md
+          Copy-Item -LiteralPath "docs/releases/v$version.md" -Destination "dist/PaperDesk-win32-x64/v$version.md"
           Compress-Archive -Path dist/PaperDesk-win32-x64 -DestinationPath "release/PaperDesk-Windows11-x64-v$version.zip"
           Get-ChildItem release -File | Where-Object { $_.Extension -in '.exe', '.zip' } | ForEach-Object {
             $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -39,16 +48,22 @@ jobs:
             release/PaperDesk-Windows11-x64-v*.zip
             release/SHA256SUMS.txt
           if-no-files-found: error
-      - name: Publish tagged release
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Publish versioned release
+        if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish))
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          if ($env:RELEASE_TAG -ne "v$version") { throw 'Tag and package version differ' }
-          $notes = "docs/releases/$($env:RELEASE_TAG).md"
+          $tag = "v$version"
+          if ($env:GITHUB_REF -like 'refs/tags/*' -and $env:RELEASE_TAG -ne $tag) { throw 'Tag and package version differ' }
+          $notes = "docs/releases/$tag.md"
           if (-not (Test-Path -LiteralPath $notes)) { throw 'Release notes are missing' }
-          gh release create $env:RELEASE_TAG release/PaperDesk-Windows-x64-Setup.exe release/PaperDesk-Windows-x64-Portable.exe "release/PaperDesk-Windows11-x64-v$version.zip" release/SHA256SUMS.txt --verify-tag --title "PaperDesk V$version" --notes-file $notes
+          gh release view $tag --json tagName --jq .tagName 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "Release $tag already exists; published artifacts were preserved."
+            exit 0
+          }
+          gh release create $tag release/PaperDesk-Windows-x64-Setup.exe release/PaperDesk-Windows-x64-Portable.exe "release/PaperDesk-Windows11-x64-v$version.zip" release/SHA256SUMS.txt $notes --target $env:GITHUB_SHA --title "PaperDesk V$version" --notes-file $notes
           if ($LASTEXITCODE -ne 0) { throw 'GitHub release creation failed' }

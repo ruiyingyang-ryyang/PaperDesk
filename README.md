@@ -5,6 +5,14 @@
   <p><a href="https://github.com/ruiyingyang-ryyang/PaperDesk/releases/latest">下载软件</a> · <a href="docs/使用指南.md">使用指南</a> · <a href="https://github.com/ruiyingyang-ryyang/PaperDesk/issues">问题反馈</a></p>
 </div>
 
+## V1.0.2 更新
+
+- **按作者检索**：检索设置、推送设置及临时作者查询都需同时填写作者姓名与对应机构；多个值按顺序一一配对。严格核验论文中同一作者的完整姓名、机构全称及所选作者身份，缺少机构证据的候选会排除。
+- **关键词并集**：不论组内还是组间，每个不同关键词都独立检索，命中任意一个即可纳入结果，再合并去重；含空格的短语保持完整，重复词保留各组关联。
+- **升级已有设置**：旧版只填作者、未填机构的配置需要补全后保存；同一机构对应多位作者时请重复填写机构。姓名与机构都留空时使用关键词检索。
+
+详见 [V1.0.2 更新说明](docs/releases/v1.0.2.md) 和 [发布前本机验证记录](docs/releases/v1.0.2-validation.md)。
+
 ## V1.0.1 修正
 
 V1.0.1 在 V1.0.0 基础上新增常用论文、对话导出、对话内接口切换与 GPT 用量统计，并在发布前修正了 5 处影响使用的问题。其中侧栏错位与对话框叠加由本版引入的 PDF 阅读和弹窗重构产生。
@@ -27,10 +35,10 @@ V1.0.1 在 V1.0.0 基础上新增常用论文、对话导出、对话内接口�
 
 | 使用方式 | 下载文件 | 启动方法 |
 | --- | --- | --- |
-| 免安装，双击打开 | [PaperDesk-Windows-x64-Portable.exe](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/download/v1.0.1/PaperDesk-Windows-x64-Portable.exe) | 双击 EXE；首次运行自动解压运行文件，之后直接启动 |
-| 安装后使用桌面快捷方式 | [PaperDesk-Windows-x64-Setup.exe](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/download/v1.0.1/PaperDesk-Windows-x64-Setup.exe) | 双击安装包，静默安装完成后自动启动 |
+| 免安装，双击打开 | [PaperDesk-Windows-x64-Portable.exe](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/download/v1.0.2/PaperDesk-Windows-x64-Portable.exe) | 双击 EXE；首次运行自动解压运行文件，之后直接启动 |
+| 安装后使用桌面快捷方式 | [PaperDesk-Windows-x64-Setup.exe](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/download/v1.0.2/PaperDesk-Windows-x64-Setup.exe) | 双击安装包，静默安装完成后自动启动 |
 
-[全部版本](https://github.com/ruiyingyang-ryyang/PaperDesk/releases) · [V1.0.1 文件校验值](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/download/v1.0.1/SHA256SUMS.txt)
+[全部版本](https://github.com/ruiyingyang-ryyang/PaperDesk/releases) · [V1.0.2 文件校验值](https://github.com/ruiyingyang-ryyang/PaperDesk/releases/download/v1.0.2/SHA256SUMS.txt)
 
 首次打开可以浏览界面。需要联网的功能，请准备自己的 API 密钥，再到应用的“检索设置”保存：
 
@@ -70,7 +78,7 @@ V1.0.1 在 V1.0.0 基础上新增常用论文、对话导出、对话内接口�
 - 论文、收藏、设置与对话默认保存在 `%APPDATA%\PaperDesk`；API 密钥由当前 Windows 用户的安全存储加密保护。
 - 使用 AI 时，提问、相关摘要或写作文本会发送给所选服务商；检索时会向相应服务发送检索条件。
 - JSON 备份排除密钥存储。分享备份前，请检查自己在正文或标签中填写的内容。
-- 免安装 EXE 的运行文件缓存在 `%LOCALAPPDATA%\PaperDeskPortable\1.0.1`，研究数据仍使用上述应用数据目录。
+- 免安装 EXE 的运行文件缓存在 `%LOCALAPPDATA%\PaperDeskPortable\1.0.2`，研究数据仍使用上述应用数据目录。
 - 更新或卸载默认保留研究库。“重新开始”会清空论文和对话等本机资料，请先导出重要内容。
 
 ## 常见问题

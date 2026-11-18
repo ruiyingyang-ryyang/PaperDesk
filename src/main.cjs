@@ -43,6 +43,7 @@ async function checkSchedule(){if(!store||running||resetting)return;const due=C.
 async function runSearch(due=null,author=null,weekly=!!due){
   if(running||resetting)throw Error('ALREADY_RUNNING');
   const s=C.searchSettings(store.data.settings,weekly);author ||= s.authorName?{name:s.authorName,school:s.authorSchool,role:s.authorRole}:null;
+  if(author&&!C.authorPairs(author).length)throw Error('INVALID_AUTHOR_SEARCH');
   if(!author&&!C.queryPlan(s).length)throw Error('KEYWORDS_REQUIRED');
   const startedAt=Date.now(),window=weekly?F.weeklyWindow(startedAt):null;
   if(weekly){s.yearFrom=Number(window.start.slice(0,4));s.yearTo=Number(window.end.slice(0,4));s.publicationWindow=window;}
@@ -54,6 +55,7 @@ async function runSearch(due=null,author=null,weekly=!!due){
     const options={signal:controller.signal,onProgress:p=>{progress=p;send('progress',p);},onPaper:async raw=>{
       controller.signal.throwIfAborted();progress={phase:'metadata',current:run.received+1,total:run.received+1};send('progress',progress);
       const p=raw.metadataStatus==='checked'&&!C.isTruncatedTitle(raw.title)&&raw.journal&&raw.year&&(!weekly||raw.publicationDate)?raw:await P.enrichPaper(raw,controller.signal);
+      if(author&&!P.matchesAuthor(p,author)){run.rejected++;return;}
       if(weekly&&!F.publicationInWindow(p,window)){run.excludedDate++;return;}
       if(!weekly&&!F.inPublicationRange(p,s)){run.excludedYear++;return;}
       if(weekly&&F.alreadyDelivered(p,store.data.deliveryLedger)){run.duplicates++;return;}
@@ -64,7 +66,7 @@ async function runSearch(due=null,author=null,weekly=!!due){
       if(!run.paperIds.includes(result.paper.id))run.paperIds.push(result.paper.id);store.save();changed();
     }};
     const stats=await (author?P.searchAuthors(s,key,author,options):P.searchScholar(s,key,options));
-    run.pages=stats.pages;run.queries=stats.queries;run.capped=stats.capped;run.rejected=stats.rejected||0;run.status=run.capped.length?'limited':'complete';
+    run.pages=stats.pages;run.queries=stats.queries;run.capped=stats.capped;run.rejected+=stats.rejected||0;run.status=run.capped.length?'limited':'complete';
     if(due){store.data.settings.lastScheduleSuccess=due;store.data.settings.retryAfter=0;}
   }catch(e){run.status=controller.signal.aborted?'cancelled':'failed';run.error=controller.signal.aborted?'CANCELLED':e.message;if(due)store.data.settings.retryAfter=Date.now()+3600000;}
   finally{run.endedAt=Date.now();running=false;controller=null;progress=null;store.save();changed();if(weekly)notify(store.data.settings.language==='zh'?`每周推送：${run.delivered} 篇论文`:`Weekly digest: ${run.delivered} papers`);}
@@ -97,7 +99,7 @@ function wire(){
   handle('schedule',async enabled=>{if(enabled&&(!store.data.secrets.serpapi||!C.queryPlan(C.searchSettings(store.data.settings,true)).length))throw Error('SETUP_REQUIRED');return schedule(!!enabled);});
   handle('run',()=>{if(running)throw Error('ALREADY_RUNNING');runSearch().catch(e=>send('error',e.message));return true;});
   handle('run-weekly',()=>{if(running)throw Error('ALREADY_RUNNING');runSearch(null,null,true).catch(e=>send('error',e.message));return true;});
-  handle('author-search',input=>{if(running)throw Error('ALREADY_RUNNING');if(!input||typeof input.name!=='string'||!input.name.trim()||typeof input.school!=='string'||!['first','corresponding','either'].includes(input.role))throw Error('INVALID_AUTHOR_SEARCH');C.peopleList(input.name);C.peopleList(input.school,200);const query={name:input.name.trim(),school:input.school.trim(),role:input.role};runSearch(null,query).catch(e=>send('error',e.message));return true;});
+  handle('author-search',input=>{if(running)throw Error('ALREADY_RUNNING');if(!input||typeof input.name!=='string'||typeof input.school!=='string'||!['first','corresponding','either'].includes(input.role)||!C.authorPairs(input).length)throw Error('INVALID_AUTHOR_SEARCH');const query={name:input.name.trim(),school:input.school.trim(),role:input.role};runSearch(null,query).catch(e=>send('error',e.message));return true;});
   handle('test-serpapi',async input=>{const key=input?.key?.trim()||await secret('serpapi');return P.testSerpapi(key);});
   handle('open-external',url=>{const safe=C.safeURL(url);if(!safe)throw Error('INVALID_URL');return shell.openExternal(safe);});
   handle('cancel',()=>{controller?.abort();return true;});

@@ -8,10 +8,19 @@ const norm = s => text(s).normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]
 const clean = s => text(s).replace(/<[^>]*>/g, ' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/\s+/g,' ').trim();
 const cleanAbstract = s => {const content=clean(s);return content.replace(/^(?:(?:abstract|摘要)(?=\s|[:：.。\-–—]|$)[\s:：.。\-–—]*)+/i,'').trim()||content;};
 const isTruncatedTitle=s=>/…|\.{3}/.test(String(s||''));
-function mergeAuthorDetails(previous=[],next=[]){const result=[];for(const raw of [...previous,...next]){const name=clean(raw.name);if(!name)continue;const id=safeURL(raw.id),affiliations=[...new Map((raw.affiliations||[]).map(clean).filter(Boolean).map(s=>[norm(s),s])).values()];const old=result.find(a=>norm(a.name)===norm(name)&&(!a.id||!id||a.id===id));if(old){old.id ||= id;old.affiliations=[...new Map([...old.affiliations,...affiliations].map(s=>[norm(s),s])).values()];}else result.push({name,id,affiliations});}return result;}
+function mergeAuthorDetails(previous=[],next=[]){const result=[];for(const raw of [...previous,...next]){const name=clean(raw.name);if(!name)continue;const id=safeURL(raw.id),affiliations=[...new Map((raw.affiliations||[]).map(clean).filter(Boolean).map(s=>[identityText(s),s])).values()];const old=result.find(a=>identityText(a.name)===identityText(name)&&(!a.id||!id||a.id===id));if(old){old.id ||= id;old.affiliations=[...new Map([...old.affiliations,...affiliations].map(s=>[identityText(s),s])).values()];}else result.push({name,id,affiliations});}return result;}
 function correspondingInstitutions(p){const names=new Set(corresponding(p).map(norm));return [...new Map((p.authorDetails||[]).filter(a=>names.has(norm(a.name))).flatMap(a=>a.affiliations||[]).map(clean).filter(Boolean).map(s=>[norm(s),s])).values()];}
 function renameGroup(data,{scope,index,name}){if(!['manual','weekly'].includes(scope)||!Number.isInteger(index)||index<0||index>2||typeof name!=='string'||name.trim().length>80)throw Error('INVALID_GROUP_NAME');const settings=data.settings,target=scope==='weekly'?settings.weekly:settings;target.groupNames||=['','',''];target.groupNames[index]=name.trim();for(const p of data.papers)if(p.groupRefs?.includes(scope+':'+index)){p.groupLabels=[...new Set(p.groupRefs.map(ref=>{const [type,i]=ref.split(':'),config=type==='weekly'?settings.weekly:settings;return config.groupNames?.[Number(i)]||((settings.language==='en'?'Group ':'关键词组 ')+(Number(i)+1));}))];}return target.groupNames[index];}
 function peopleList(value,maxLength=100){const list=[...new Set(String(value||'').split(/[;；\r\n]+/).map(s=>s.trim()).filter(Boolean))];if(list.length>10||list.some(s=>s.length>maxLength))throw Error('AUTHOR_LIST_LIMIT');return list;}
+// Keep word boundaries and punctuation: partial names and institutions are not identities.
+const identityText=s=>text(s).normalize('NFKC').trim().replace(/\s+/g,' ').toLowerCase();
+function authorPairs({name='',school='',role='either'}={}){
+  const entries=(value,max)=>{const list=String(value).split(/[;；\r\n]+/).map(s=>s.trim()).filter(Boolean);if(list.length>10||list.some(s=>s.length>max))throw Error('AUTHOR_LIST_LIMIT');return list;};
+  const names=entries(name,100),schools=entries(school,200);
+  if(!names.length&&!schools.length)return [];
+  if(names.length!==schools.length||!['first','corresponding','either'].includes(role))throw Error('INVALID_AUTHOR_SEARCH');
+  return names.map((name,i)=>({name,school:schools[i],role})).filter((p,i,all)=>all.findIndex(x=>identityText(x.name)===identityText(p.name)&&identityText(x.school)===identityText(p.school))===i);
+}
 function monthOnly(value){const s=String(value||'').slice(0,7);return /^\d{4}-(0[1-9]|1[0-2])$/.test(s)&&Number(s.slice(0,4))>=1500?s:'';}
 function defaults(){return {version:1,settings:{groups:[[],[],[]],groupNames:['','',''],journals:[],maxPages:50,language:'zh',enrich:true,scheduleEnabled:false,scheduleDay:5,scheduleTime:'08:00',scheduleEnabledAt:0,lastScheduleSuccess:0,authorName:'',authorSchool:'',authorRole:'either',yearFrom:null,yearTo:null,monthFrom:'',monthTo:'',deepseekModel:'deepseek-flash',aiProvider:'deepseek',gptModel:'gpt-4.1',writing:{journals:[],type:'期刊'},appearance:{theme:'light',fontSize:13},panelsCollapsed:{inbox:false,weekly:false,all:false,saved:false},weekly:{groups:[[],[],[]],groupNames:['','',''],journals:[],maxPages:50,authorName:'',authorSchool:'',authorRole:'either'}},papers:[],runs:[],chats:[],favoritePapers:[],gptUsage:[],deliveryLedger:[],secrets:{},dsAnalogyVersion:1};}
 function safeURL(s) { try { const u = new URL(s); return ['https:', 'http:'].includes(u.protocol) && !u.username && !u.password ? u.href : ''; } catch { return ''; } }
@@ -32,7 +41,8 @@ function validateSettings(input) {
   if([yearFrom,yearTo].some(v=>v!==null&&(!Number.isInteger(v)||v<1500||v>new Date().getFullYear()+1))||yearFrom&&yearTo&&yearFrom>yearTo)throw Error('INVALID_YEAR_RANGE');
   const monthFrom=input.monthFrom===undefined?(yearFrom?yearFrom+'-01':''):String(input.monthFrom||''),monthTo=input.monthTo===undefined?(yearTo?yearTo+'-12':''):String(input.monthTo||'');
   if([monthFrom,monthTo].some(v=>v&&(!monthOnly(v)||v!==monthOnly(v)||Number(v.slice(0,4))>new Date().getFullYear()+1))||monthFrom&&monthTo&&monthFrom>monthTo)throw Error('INVALID_MONTH_RANGE');
-  const authorName=peopleList(input.authorName).join('; '),authorSchool=peopleList(input.authorSchool,200).join('; ');
+  const pairs=authorPairs({name:input.authorName,school:input.authorSchool,role:input.authorRole||'either'});
+  const authorName=pairs.map(p=>p.name).join('; '),authorSchool=pairs.map(p=>p.school).join('; ');
   return {groups,groupNames,journals,maxPages,language:input.language==='en'?'en':'zh',enrich:true,authorName,authorSchool,authorRole:['first','corresponding'].includes(input.authorRole)?input.authorRole:'either',monthFrom,monthTo,yearFrom:monthFrom?Number(monthFrom.slice(0,4)):null,yearTo:monthTo?Number(monthTo.slice(0,4)):null,...scheduleParameters(input)};
 }
 function searchSettings(settings, weekly=false) {
@@ -40,12 +50,16 @@ function searchSettings(settings, weekly=false) {
 }
 function queryFor(group, journal = '') {
   const quote = s => '"' + s.replace(/["\\]/g,' ').trim() + '"';
-  return group.map(quote).join(' ') + (journal ? ' source:' + quote(journal) : '');
+  return (group.length>1?'('+group.map(quote).join(' OR ')+')':group.map(quote).join('')) + (journal ? ' source:' + quote(journal) : '');
 }
 function queryPlan(settings) {
-  const author=settings.authorName?'author:"'+settings.authorName.replace(/["\\]/g,' ')+'" ':'';
-  const groups=settings.groups.some(g=>g.length)?settings.groups:author?[[]]:[];
-  return groups.flatMap((g,i)=>(g.length||author)?(settings.journals.length?settings.journals:['']).map(j=>({group:i,journal:j,q:(author+queryFor(g,j)).trim()})):[]);
+  // One query per distinct phrase so a common keyword cannot crowd out another.
+  const terms=new Map();
+  settings.groups.forEach((g,i)=>g.forEach(raw=>{const term=raw.trim(),key=identityText(term);if(!key)return;if(!terms.has(key))terms.set(key,{term,groups:[]});const entry=terms.get(key);if(!entry.groups.includes(i))entry.groups.push(i);}));
+  const journals=settings.journals.length?settings.journals:[''];
+  const plan=[...terms.values()].flatMap(({term,groups})=>journals.map(j=>({group:groups[0],groups:[...groups],journal:j,q:queryFor([term],j).trim()})));
+  if(!plan.length&&settings.authorName){const pairs=authorPairs({name:settings.authorName,school:settings.authorSchool,role:settings.authorRole||'either'});return pairs.flatMap(p=>journals.map(j=>({group:0,groups:[],journal:j,q:'author:'+queryFor([p.name])+' '+queryFor([p.school],j)})));}
+  return plan;
 }
 function paperId(p) { return crypto.createHash('sha256').update(p.doi ? 'doi:'+p.doi.toLowerCase() : 'title:'+norm(p.title)+'|'+norm(p.journal)+'|'+p.year).digest('hex').slice(0,24); }
 function normalizePaper(raw) {
@@ -55,7 +69,7 @@ function normalizePaper(raw) {
     journal:clean(raw.journal), year:text(raw.year,4),
     publicationDate:/^\d{4}-\d{2}-\d{2}$/.test(raw.publicationDate||'')?raw.publicationDate:'',
     publicationMonth:monthOnly(raw.publicationMonth||raw.publicationDate),
-    authors:(Array.isArray(raw.authors) ? raw.authors : []).slice(0,5000).map((a,i)=>({name:clean(typeof a==='string'?a:a.name), first:typeof a.first==='boolean'?a.first:i===0, corresponding:!!a.corresponding, evidence:text(a.evidence,100)})).filter(a=>a.name),
+    authors:(Array.isArray(raw.authors) ? raw.authors : []).slice(0,5000).map((a,i)=>({name:clean(typeof a==='string'?a:a.name),...(safeURL(a.id)?{id:safeURL(a.id)}:{}), first:typeof a.first==='boolean'?a.first:i===0, corresponding:!!a.corresponding, evidence:text(a.evidence,100)})).filter(a=>a.name),
     authorDetails:(Array.isArray(raw.authorDetails)?raw.authorDetails:[]).slice(0,5000).map(a=>({name:clean(a.name),id:safeURL(a.id),affiliations:(a.affiliations||[]).slice(0,20).map(clean)})),
     keywords:(Array.isArray(raw.keywords)?raw.keywords:[]).slice(0,100).map(x=>text(x,200)),
     topics:(Array.isArray(raw.topics)?raw.topics:[]).slice(0,100).map(x=>text(x,200)),
@@ -160,4 +174,4 @@ class Store {
   resetPreservingAPI(){const secrets=structuredClone(this.data.secrets||{}),model=this.data.settings.deepseekModel,aiProvider=this.data.settings.aiProvider,gptModel=this.data.settings.gptModel;this.data=defaults();this.data.secrets=secrets;if(model)this.data.settings.deepseekModel=model;this.data.settings.aiProvider=aiProvider||'deepseek';this.data.settings.gptModel=gptModel||'gpt-4.1';this.save();fs.writeFileSync(this.file+'.bak',JSON.stringify(this.data));for(const file of fs.readdirSync(path.dirname(this.file)))if(/^library\.json\.corrupt-\d+$/.test(file))fs.unlinkSync(path.join(path.dirname(this.file),file));return this.data;}
 }
 function removeChat(data,{id,messageId}){const chat=data.chats.find(c=>c.id===id);if(!chat)throw Error('NOT_FOUND');if(!messageId){data.chats=data.chats.filter(c=>c.id!==id);return;}const at=chat.messages.findIndex(m=>m.id===messageId&&m.role==='user');if(at<0)throw Error('NOT_FOUND');let end=at+1;while(end<chat.messages.length&&chat.messages[end].role!=='user')end++;const oldTitle=chat.messages[at].content.trim().slice(0,48);chat.messages.splice(at,end-at);if(!chat.messages.length)data.chats=data.chats.filter(c=>c.id!==id);else{if(chat.title===oldTitle)chat.title=chat.messages.find(m=>m.role==='user')?.content.trim().slice(0,48)||chat.title;chat.updatedAt=Date.now();}}
-module.exports={text,journalName,norm,clean,cleanAbstract,isTruncatedTitle,mergeAuthorDetails,correspondingInstitutions,renameGroup,peopleList,monthOnly,removeChat,defaults,safeURL,doiFrom,validateSettings,searchSettings,queryFor,queryPlan,paperId,normalizePaper,fromScholar,mergePaper,upsert,journalMatch,corresponding,lastFriday,nextFriday,scheduleParameters,lastScheduled,nextScheduled,scheduledDue,csvCell,exportCSV,Store};
+module.exports={text,journalName,norm,clean,cleanAbstract,isTruncatedTitle,mergeAuthorDetails,correspondingInstitutions,renameGroup,peopleList,identityText,authorPairs,monthOnly,removeChat,defaults,safeURL,doiFrom,validateSettings,searchSettings,queryFor,queryPlan,paperId,normalizePaper,fromScholar,mergePaper,upsert,journalMatch,corresponding,lastFriday,nextFriday,scheduleParameters,lastScheduled,nextScheduled,scheduledDue,csvCell,exportCSV,Store};
